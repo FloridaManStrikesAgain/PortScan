@@ -39,16 +39,18 @@ def host_reachable(ip):
       sys.exit(1)
 def scanport(port): 
   try:
-       srcport = RandShort()
-       conf.verb = 0 
-       SYNACKpkt = sr1(IP(dst = target)/TCP(sport = srcport, dport = port, flags = "S")) 
-       pktflags = SYNACKpkt.getlayer(TCP).flags 
-       if pktflags == SYNACK:
-               return True 
-       else:
-               return False 
-       RSTpkt = IP(dst = target)/TCP(sport = srcport, dport = port, timeout=1, flags = "R") 
-       send(RSTpkt) 
+    src_port = RandShort()
+    tcp_connect_scan_resp = sr1(IP(dst=target)/TCP(sport=src_port,dport=port,flags="S"),timeout=1)
+    if(tcp_connect_scan_resp == None):
+        return "Closed"
+    elif(tcp_connect_scan_resp.haslayer(TCP)):
+        if(tcp_connect_scan_resp.getlayer(TCP).flags == 0x12):
+            send_rst = sr(IP(dst=target)/TCP(sport=src_port,dport=port,flags="AR"),timeout=1)
+            return "Open"
+        elif (tcp_connect_scan_resp.getlayer(TCP).flags == 0x14):
+            return "Closed"
+    else:
+        return "CHECK"       
   except KeyboardInterrupt: 
        RSTpkt = IP(dst = target)/TCP(sport = srcport, dport = port, timeout=1, flags = "R") 
        send(RSTpkt) 
@@ -90,13 +92,15 @@ print("[*] Scanning Started at " + strftime("%H:%M:%S") + "!\n")
 for port in ports: 
    if protocol == "t":
       status = scanport(port) 
-      if status == True: 
+      if status == "Open": 
          print ("Port " + str(port) + ": Open" )
    elif protocol == "u":
       srcport = RandShort()
       ans = udp_scan(target, port)
-      if ans == "Open" or ans == "Open|Filtered":
+      if ans == "Open":
          print ("Port " + str(port) + ": Open" )
+      elif ans == "Open|Filtered":
+         print ("Port " + str(port) + ": Open|Filtered" )     
 stop_clock = datetime.now()
 total_time = stop_clock - start_clock 
 print ("\n[*] Scanning Finished!")
